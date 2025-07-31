@@ -93,12 +93,6 @@
                         </li>
                     </ul>
                 </li>
-                <li class="nav-item">
-                    <a href="{{url('/')}}" class="nav-link">
-                        <i class="nav-icon fas fa-users"></i>
-                        <p>User Manajemen</p>
-                    </a>
-                </li>
             </ul>
         </nav>
         <!-- /.sidebar-menu -->
