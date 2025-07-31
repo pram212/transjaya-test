@@ -16,4 +16,9 @@ class ChartOfAccount extends Model
     {
         return $this->belongsTo(CategoryCoa::class);
     }
+
+    public function transaction()
+    {
+        return $this->hasMany(TransactionDetail::class, 'chart_of_account_id');
+    }
 }
