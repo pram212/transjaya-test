@@ -55,5 +55,5 @@ php artisan serve
 #### 1 Master Kategori COA
 #### 2 Mater Chart of Account
 #### 3 Transaksi
-#### 4 Laporan
-#### 5 Export laporan
+#### 4 Laporan Profit/Loss
+#### 5 Export laporan Profit/Loss
