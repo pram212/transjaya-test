@@ -17,16 +17,16 @@ class ProfitLossExport implements FromView, ShouldAutoSize, WithStyles, WithEven
     protected $netIncome;
     protected $start;
     protected $end;
-    protected $allDates;
+    protected $allMonth;
 
-    public function __construct($income, $expense, $netIncome, $start, $end, $allDates)
+    public function __construct($income, $expense, $netIncome, $start, $end, $allMonth)
     {
         $this->income = $income;
         $this->expense = $expense;
         $this->netIncome = $netIncome;
         $this->start = $start;
         $this->end = $end;
-        $this->allDates = $allDates;
+        $this->allMonth = $allMonth;
     }
 
     public function view(): View
@@ -37,7 +37,7 @@ class ProfitLossExport implements FromView, ShouldAutoSize, WithStyles, WithEven
             'netIncome' => $this->netIncome,
             'start_date' => $this->start,
             'end_date' => $this->end,
-            'allDates' => $this->allDates
+            'allMonth' => $this->allMonth
         ]);
     }
 
@@ -54,8 +54,12 @@ class ProfitLossExport implements FromView, ShouldAutoSize, WithStyles, WithEven
                 'font' => ['bold' => true],
                 'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'F2F2F2']]
             ],
-            // Header Income
             3 => [
+                'font' => ['bold' => true],
+                'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'F2F2F2']]
+            ],
+            // Header Income
+            4 => [
                 'font' => ['bold' => true],
                 'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'E6FFE6']] // Hijau muda
             ],
@@ -69,7 +73,7 @@ class ProfitLossExport implements FromView, ShouldAutoSize, WithStyles, WithEven
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 // Hitung baris untuk blok Income dan Expense
-                $incomeStartRow = 3; // Baris mulai Income
+                $incomeStartRow = 4; // Baris mulai Income
                 $incomeRowCount = count($this->income['data']);
                 $incomeEndRow = $incomeStartRow + $incomeRowCount;
 
@@ -79,7 +83,7 @@ class ProfitLossExport implements FromView, ShouldAutoSize, WithStyles, WithEven
 
                 $netIncomeRow = $expenseEndRow + 1;
 
-                $colCount = count($this->allDates) + 1;
+                $colCount = count($this->allMonth) + 1;
 
                 // Warna blok Income (hijau muda)
                 $event->sheet->getStyle("A{$incomeStartRow}:" . $event->sheet->getCellByColumnAndRow($colCount, $incomeEndRow)->getCoordinate())

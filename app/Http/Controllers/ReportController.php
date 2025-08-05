@@ -13,33 +13,36 @@ class ReportController extends Controller
 {
     public function profit(Request $request)
     {
-        $start = $request->start ?? date('Y-m-d');
-        $end = $request->end ?? date('Y-m-d');
+        $start = date('Y-m-d', strtotime($request->start)) ?? date('Y-m-d');
+        $end = date('Y-m-d', strtotime($request->end)) ?? date('Y-m-d');
 
         $income = $this->getProfitLoss(type: 'Pendapatan', start: $start, end: $end);
+
         $expense = $this->getProfitLoss(type: 'Beban', start: $start, end: $end);
 
-        // Dapatkan semua tanggal unik dari income dan expense
-        $allDates = $this->getMergedDates($income, $expense);
+        // Dapatkan semua bulan unik dari income dan expense
+        $allMonth = $this->getMergedMonth($income, $expense);
 
         $netIncome = [];
 
-        foreach ($allDates as $date) {
-            $incomeTotal = $this->calculateDateTotal($income['data'], $date, false); // false = exclude _total row
-            $expenseTotal = $this->calculateDateTotal($expense['data'], $date, false); // false = exclude _total row
-            $netIncome[$date] = $incomeTotal - $expenseTotal;
+        foreach ($allMonth as $month) {
+            $incomeTotal = $this->calculateDateTotal($income['data'], $month, false); // false = exclude _total row
+            $expenseTotal = $this->calculateDateTotal($expense['data'], $month, false); // false = exclude _total row
+            $netIncome[$month] = $incomeTotal - $expenseTotal;
         }
 
         if($request->export) {
             $fileName = 'laporan-labarugi-' . time() . '.xlsx';
-            return Excel::download(new ProfitLossExport($income, $expense, $netIncome, $start, $end, $allDates), $fileName);
+            return Excel::download(new ProfitLossExport($income, $expense, $netIncome, $start, $end, $allMonth), $fileName);
         }
+
+        // return [$income, $expense, $netIncome, $allMonth];
 
         return view('reports.profit-loss', [
             'income' => $income,
             'expense' => $expense,
             'netIncome' => $netIncome,
-            'allDates' => $allDates,
+            'allMonth' => $allMonth,
         ]);
     }
 
@@ -55,7 +58,7 @@ class ReportController extends Controller
             ->join('category_coas as ccoa', 'ccoa.id', 'coa.category_coa_id')
             ->select(
                 'td.id',
-                't.date',
+                DB::raw("DATE_FORMAT(t.date, '%Y-%m') as month"),
                 'ccoa.name as category',
                 'coa.code as coa_code',
                 'coa.name as coa_name',
@@ -64,21 +67,21 @@ class ReportController extends Controller
             ->where('coa.type', $type)
             ->whereDate('t.date', '>=', $start)
             ->whereDate('t.date', '<=', $end)
-            ->groupBy('t.date', 'ccoa.name')
-            ->oldest('t.date')
+            ->groupBy(DB::raw("DATE_FORMAT(t.date, '%Y-%m')"), 'ccoa.name')
+            ->oldest(DB::raw("DATE_FORMAT(t.date, '%Y-%m')"))
             ->get();
 
         // Transformasi data ke format yang diinginkan
         $categories = [];
-        $dates = [];
-        $dateTotals = [];     // Untuk menyimpan total per tanggal
+        $months = [];
+        $monthTotals = [];     // Untuk menyimpan total per bulan
         $grandTotal = 0;       // Untuk menyimpan grand total
 
-        // Kumpulkan semua tanggal unik dan kategori
+        // Kumpulkan semua bulan unik dan kategori
         foreach ($pendapatan as $item) {
-            if (!in_array($item->date, $dates)) {
-                $dates[] = $item->date;
-                $dateTotals[$item->date] = 0; // Inisialisasi total per tanggal
+            if (!in_array($item->month, $months)) {
+                $months[] = $item->month;
+                $monthTotals[$item->month] = 0; // Inisialisasi total per bulan
             }
 
             if (!isset($categories[$item->category])) {
@@ -86,78 +89,78 @@ class ReportController extends Controller
                     'category' => $item->category,
                     '_total' => 0 // Tambahkan field total per kategori
                 ];
-                // Inisialisasi semua tanggal dengan 0 untuk kategori ini
-                foreach ($dates as $date) {
+                // Inisialisasi semua bulan dengan 0 untuk kategori ini
+                foreach ($months as $date) {
                     $categories[$item->category][$date] = "0";
                 }
             }
         }
 
-        // Isi nilai amount untuk setiap kategori dan tanggal
+        // Isi nilai amount untuk setiap kategori dan bulan
         foreach ($pendapatan as $item) {
             $amount = (float)$item->amount;
-            $categories[$item->category][$item->date] = (string)$amount;
+            $categories[$item->category][$item->month] = (string)$amount;
 
             // Hitung total per kategori
             $categories[$item->category]['_total'] += $amount;
 
-            // Hitung total per tanggal
-            $dateTotals[$item->date] += $amount;
+            // Hitung total per bulan
+            $monthTotals[$item->month] += $amount;
 
             // Hitung grand total
             $grandTotal += $amount;
         }
 
-        // Pastikan semua tanggal ada di setiap kategori
+        // Pastikan semua bulan ada di setiap kategori
         foreach ($categories as &$categoryData) {
-            foreach ($dates as $date) {
-                if (!isset($categoryData[$date])) {
-                    $categoryData[$date] = "0";
+            foreach ($months as $month) {
+                if (!isset($categoryData[$month])) {
+                    $categoryData[$month] = "0";
                 }
             }
             // Urutkan field
             $temp = ['category' => $categoryData['category']];
-            foreach ($dates as $date) {
-                $temp[$date] = $categoryData[$date];
+            foreach ($months as $month) {
+                $temp[$month] = $categoryData[$month];
             }
             $temp['_total'] = $categoryData['_total']; // Tambahkan total kategori
             $categoryData = $temp;
         }
 
-        // Tambahkan baris total per tanggal
-        $dateTotalsRow = ['category' => 'Total'];
-        foreach ($dates as $date) {
-            $dateTotalsRow[$date] = (string)$dateTotals[$date];
+        // Tambahkan baris total per bulan
+        $monthTotalsRow = ['category' => 'Total'];
+        foreach ($months as $date) {
+            $monthTotalsRow[$date] = (string)$monthTotals[$date];
         }
-        $dateTotalsRow['_total'] = array_sum($dateTotals); // Total dari total tanggal
+        $monthTotalsRow['_total'] = array_sum($monthTotals); // Total dari total bulan
 
         // Konversi ke collection dan tambahkan data tambahan
         $result = collect(array_values($categories))
-            ->push($dateTotalsRow); // Tambahkan baris total per tanggal
+            ->push($monthTotalsRow); // Tambahkan baris total per bulan
 
         return [
             'data' => $result,
-            'dates' => $dates
+            'months' => $months
         ];
     }
 
-    private function getMergedDates($income, $expense)
+    private function getMergedMonth($income, $expense)
     {
-        $incomeDates = $income['dates'];
-        $expenseDates = $expense['dates'];
+        $incomeDates = $income['months'];
+        $expenseDates = $expense['months'];
 
-        // Gabungkan dan ambil tanggal unik
-        $allDates = array_unique(array_merge($incomeDates, $expenseDates));
+        // Gabungkan dan ambil bulan unik
+        $allMonth = array_unique(array_merge($incomeDates, $expenseDates));
 
-        // Urutkan tanggal
-        usort($allDates, function ($a, $b) {
+        // Urutkan bulan
+        usort($allMonth, function ($a, $b) {
             return strtotime($a) - strtotime($b);
         });
 
-        return $allDates;
+        return $allMonth;
     }
 
-    private function calculateDateTotal($data, $date, $includeTotalRow = false)
+    private function calculateDateTotal($data, $month, $includeTotalRow = false)
     {
         $total = 0;
         foreach ($data as $item) {
@@ -166,8 +169,8 @@ class ReportController extends Controller
                 continue;
             }
 
-            if (isset($item[$date])) {
-                $total += (float)$item[$date];
+            if (isset($item[$month])) {
+                $total += (float)$item[$month];
             }
         }
         return $total;
