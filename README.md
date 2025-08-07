@@ -31,9 +31,6 @@ php artisan key:generate
 ```bash
 php artisan migrate --seed
 ```
-```bash
-php artisan filament:optimize-clear
-```
 ```bash 
 php artisan optimize:clear
 ```
