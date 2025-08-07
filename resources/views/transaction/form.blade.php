@@ -1,42 +1,89 @@
 @extends('layouts.app')
 
 @section('title', 'Transaksi')
-@section('header', 'Transaksi Baru')
+@php
+    $header = match (Route::currentRouteName()) {
+        'transaction.edit' => 'Edit Transaksi',
+        'transaction.create' => 'Tambah Transaksi',
+        'transaction.show' => 'Detail Transaksi',
+    };
+@endphp
+
+@section('header', $header)
 
 @section('content')
-    <form action="{{ route('transaction.store') }}" method="POST" class="container" id="form-transaksi">
+    @php
+        $action = Route::is('transaction.edit')
+            ? route('transaction.update', ['transaction' => @$transaction->id ])
+            : route('transaction.store');
+    @endphp
+    <form action="{{ $action }}" method="POST" class="container" id="form-transaksi">
         @csrf
+        @if (Route::is('transaction.edit'))
+            @method('PUT')
+        @endif
         <div class="row shadow rounded mb-2 p-2">
             <div class="col-md-6">
                 <div class="form-group">
-                    <label for="" class="label">Tanggal</label>
-                    <input type="date" class="form-control" name="date" value="{{ old('date') }}">
+                    <label class="label">Tanggal</label>
+                    <input type="date" class="form-control" name="date" @disabled(Route::is('transaction.show'))
+                        value="{{ old('date', @$transaction->date) }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
-                    <label for="" class="label">Keterangan</label>
-                    <input type="text" class="form-control" name="description" value="{{ old('description') }}">
+                    <label class="label">Keterangan</label>
+                    <input type="text" class="form-control" name="description" @disabled(Route::is('transaction.show'))
+                        value="{{ old('description', @$transaction->description) }}">
                 </div>
             </div>
         </div>
         <div class="row shadow rounded p-3 mb-2">
             <div class="table-responsive">
-                <table class="table table-bordered" id="table-transaksi">
+                <table class="table table-striped table-sm" id="table-transaksi">
                     <thead>
                         <tr>
                             <th style="width: 30%">COA</th>
                             <th>Debet</th>
                             <th>Kredit</th>
                             <th style="width: 20px">
-                                <button type="button" class="btn btn-sm btn-success" id="add-row">
+                                <button type="button" @disabled(Route::is('transaction.show')) class="btn btn-sm btn-success"
+                                    id="add-row">
                                     <i class="fa fa-plus"></i>
                                 </button>
                             </th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Row akan ditambahkan dengan JS -->
+                        @isset($transaction)
+                            @foreach ($transaction->details as $item)
+                                <tr>
+                                    <td>
+                                        <select @disabled(Route::is('transaction.show')) class="form-control coa-select"
+                                            name="chart_of_account_id[]">
+                                            <option value="{{ $item->coa->id }}">{{ $item->coa->code }} - {{ $item->coa->name }}
+                                            </option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" @disabled(Route::is('transaction.show'))
+                                            class="form-control form-control-sm debet" name="debet[]"
+                                            value="{{ $item->debet }}" step="0.01" min="0">
+                                    </td>
+                                    <td>
+                                        <input type="number" @disabled(Route::is('transaction.show'))
+                                            class="form-control form-control-sm credit" name="credit[]"
+                                            value="{{ $item->credit }}" step="0.01" min="0">
+                                    </td>
+                                    <td>
+                                        <button type="button" @disabled(Route::is('transaction.show'))
+                                            class="btn btn-sm btn-danger remove-row">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        @endisset
                     </tbody>
                     <tfoot>
                         <tr>
@@ -51,7 +98,7 @@
             </div>
         </div>
         <div class="row mt-5">
-            <button class="btn btn-primary">Simpan</button>
+            <button class="btn btn-primary" @disabled(Route::is('transaction.show'))>Simpan</button>
         </div>
     </form>
 @endsection
@@ -59,14 +106,22 @@
 @push('script')
     <script>
         $(document).ready(function() {
+
+            var transation = {{ Illuminate\Support\Js::from(@$transaction) }}
+
+            if (transation) {
+                initSelect2()
+                updateTotals()
+            }
+
             function createRow() {
                 let row = `
                         <tr>
                             <td>
                                 <select class="form-control coa-select" name="chart_of_account_id[]"></select>
                             </td>
-                            <td><input type="number" class="form-control debet" name="debet[]" step="0.01" min="0"></td>
-                            <td><input type="number" class="form-control credit" name="credit[]" step="0.01" min="0"></td>
+                            <td><input type="number" class="form-control form-control-sm debet" name="debet[]" step="0.01" min="0"></td>
+                            <td><input type="number" class="form-control form-control-sm credit" name="credit[]" step="0.01" min="0"></td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-danger remove-row">
                                     <i class="fa fa-times"></i>
@@ -76,12 +131,14 @@
                     `;
                 $('#table-transaksi tbody').append(row);
                 initSelect2(); // supaya select2-nya jalan di row baru
+                updateTotals()
             }
 
             function initSelect2() {
                 $('.coa-select').select2({
                     placeholder: 'Pilih Akun',
                     width: '100%',
+                    theme: "classic",
                     ajax: {
                         url: '{!! route('option.coa') !!}', // ganti sesuai route-mu
                         dataType: 'json',
@@ -98,13 +155,15 @@
                 });
             }
 
-            $('#add-row').on('click', function() {
+            $("#add-row").click(function(e) {
+                e.preventDefault();
                 createRow();
-            });
+            })
 
             $('#table-transaksi').on('click', '.remove-row', function() {
                 $(this).closest('tr').remove();
-            });
+                updateTotals()
+            })
 
             function updateTotals() {
                 let totalDebet = 0;
@@ -166,7 +225,10 @@
                 // Validasi
                 if (totalDebit !== totalKredit) {
                     e.preventDefault();
-                    alert('Total debit dan kredit harus sama!');
+                    Swal.fire({
+                        icon: 'error',
+                        text: "Debet dan Kredit tidak balance",
+                    })
                     return false;
                 }
 

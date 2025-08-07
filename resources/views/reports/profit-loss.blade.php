@@ -6,7 +6,9 @@
     <div class="container">
         <div class="d-flex justify-content-between mb-2">
             <p>
-                Periode: {{ date('d M Y', strtotime(request('start'))) }} s/d {{ date('d M Y', strtotime(request('end'))) }}
+                @if (request('start'))
+                    Periode: {{ date('M Y', strtotime(request('start'))) }} s/d {{ date('M Y', strtotime(request('end'))) }}
+                @endif
             </p>
             <div>
                 <a href="{{ route('laporan.profit', ['start' => request('start'), 'end' => request('end'), 'export' => 1]) }}"
@@ -17,44 +19,49 @@
 
         <section id="content">
             <div class="table-responsive overflow-auto">
-                <table class="table table-sm">
-                    <thead class="bg-dark">
+                <table class="table table-sm table-bordered">
+                    <thead class="">
                         <tr>
-                            <th>Kategori</th>
-                            @foreach ($allDates as $date)
-                                <th>{{ \Carbon\Carbon::parse($date)->format('d/m/Y') }}</th>
+                            <th rowspan="2" class="align-middle">Kategori</th>
+                            @foreach ($allMonth as $date)
+                                <th>{{ date('m/Y', strtotime($date)) }}</th>
+                            @endforeach
+                        </tr>
+                        <tr>
+                            @foreach ($allMonth as $date)
+                                <th>Amount</th>
                             @endforeach
                         </tr>
                     </thead>
                     <tbody>
                         <tr class="bg-income">
-                            <th colspan="{{ count($allDates) + 1 }}">Income</th>
+                            <th colspan="{{ count($allMonth) + 1 }}">Income</th>
                         </tr>
                         @foreach ($income['data'] as $item)
                             <tr class="@if (@$item['category'] === 'Total') font-weight-bold @endif bg-income">
                                 <td class="pl-4">{{ $item['category'] }}</td>
-                                @foreach ($allDates as $date)
-                                    <td>{{ number_format(@$item[$date], 0, ',', '.') }}</td>
+                                @foreach ($allMonth as $date)
+                                    <td>{{ number_format(@$item[$date], 2, ',', '.') }}</td>
                                 @endforeach
                             </tr>
                         @endforeach
 
                         <tr class="bg-expense">
-                            <th colspan="{{ count($allDates) + 1 }}">Expense</th>
+                            <th colspan="{{ count($allMonth) + 1 }}">Expense</th>
                         </tr>
                         @foreach ($expense['data'] as $item)
                             <tr class="@if (@$item['category'] === 'Total') font-weight-bold @endif bg-expense">
                                 <td class="pl-4">{{ $item['category'] }}</td>
-                                @foreach ($allDates as $date)
-                                    <td>{{ number_format(@$item[$date], 0, ',', '.') }}</td>
+                                @foreach ($allMonth as $date)
+                                    <td>{{ number_format(@$item[$date], 2, ',', '.') }}</td>
                                 @endforeach
                             </tr>
                         @endforeach
                     </tbody>
                     <tfoot class="bg-dark">
                         <th>Net Income</th>
-                        @foreach ($allDates as $date)
-                            <th>{{ number_format($netIncome[$date], 0, ',', '.') }}</th>
+                        @foreach ($allMonth as $date)
+                            <th>{{ number_format($netIncome[$date], 2, ',', '.') }}</th>
                         @endforeach
                     </tfoot>
                 </table>
@@ -76,11 +83,11 @@
                         <form action="" id="form-filter">
                             <div class="form-group">
                                 <label for="start" class="label">Dari</label>
-                                <input type="date" class="form-control" name="start" value="{{ request('start') }}">
+                                <input type="month" class="form-control" name="start" value="{{ request('start') }}">
                             </div>
                             <div class="form-group">
                                 <label for="end" class="label">Sampai</label>
-                                <input type="date" class="form-control" name="end" value="{{ request('end') }}">
+                                <input type="month" class="form-control" name="end" value="{{ request('end') }}">
                             </div>
                         </form>
                     </div>

@@ -2,21 +2,21 @@
 
 @section('title', 'Chart Of Account')
 @php
-    $header = Route::currentRouteName() == 'master.chartofaccount.create' ? 'Tambah Kategori' : 'Edit Kategori';
+    $header = Route::is('master.chartofaccount.create') ? 'Tambah Kategori' : 'Edit Kategori';
 @endphp
 @section('header', $header)
 
 @section('content')
     @php
         $action =
-            Route::currentRouteName() == 'master.chartofaccount.create'
+            Route::is('master.chartofaccount.create')
                 ? route('master.chartofaccount.store')
                 : route('master.chartofaccount.update', ['chartofaccount' => $chartofaccount]);
     @endphp
     <div class="container">
         <form action="{{ $action }}" method="POST">
             @csrf
-            @if (Route::currentRouteName() == 'master.chartofaccount.edit')
+            @if (Route::is('master.chartofaccount.edit'))
                 @method('PUT')
             @endif
             <div class="row">
